@@ -7,6 +7,7 @@ Handles OAuth2 authentication and data retrieval from Whoop API
 import os
 import json
 import requests
+import secrets
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from typing import Optional, Dict, List
@@ -31,16 +32,25 @@ class WhoopClient:
         self.redirect_uri = os.getenv("WHOOP_REDIRECT_URI", "http://localhost:8000/callback")
         self.access_token = None
         self.refresh_token = None
+        self.state = None
 
         if not self.client_id or not self.client_secret:
             raise ValueError("Missing WHOOP_CLIENT_ID or WHOOP_CLIENT_SECRET in .env file")
 
+    def _generate_state(self) -> str:
+        """Generate a secure random state parameter for OAuth2"""
+        return secrets.token_urlsafe(32)
+
     def get_authorization_url(self) -> str:
         """Generate the authorization URL for user to authenticate"""
+        # Generate and save state for CSRF protection
+        self.state = self._generate_state()
+
         params = {
             "client_id": self.client_id,
             "redirect_uri": self.redirect_uri,
             "response_type": "code",
+            "state": self.state,
             "scope": "read:recovery read:cycles read:sleep read:workout read:profile read:body_measurement"
         }
         return f"{self.AUTH_URL}?{urlencode(params)}"
